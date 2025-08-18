@@ -1,8 +1,26 @@
-/*
+/* === Reading View (Preview) === */
+body.todoist-hide-completed:not(.todoist-reveal-completed)
+  .markdown-preview-view li.todoist-hidden {
+  display: none !important;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* === Editor (Live Preview / Source, CM6) === */
+/* High-specificity variants to beat themes/snippets */
+/*body.todoist-hide-completed:not(.todoist-reveal-completed)
+  .markdown-source-view.mod-cm6 .cm-line.todoist-hide-line {
+  display: none !important;
+}*/
 
-If your plugin does not need CSS, delete this file.
+body.todoist-hide-completed:not(.todoist-reveal-completed)
+  .cm-editor .cm-line.todoist-hide-line {
+  display: none !important;
+}
 
-*/
+/* Optional, super-robust CSS-only fallback using :has()
+   (works in current Chromium/Electron builds).
+   This hides ANY cm-line that contains a checked task input,
+   even if our decoration didn't attach for some reason. */
+/*body.todoist-hide-completed:not(.todoist-reveal-completed)
+  .cm-editor .cm-line:has(.task-list-item-checkbox[data-task="x"]) {
+  display: none !important;
+}*/
