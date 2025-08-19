@@ -1,7 +1,8 @@
 /* === Reading View (Preview) === */
 body.todoist-hide-completed:not(.todoist-reveal-completed)
-  .markdown-preview-view li.todoist-hidden {
-  display: none !important;
+	.markdown-preview-view
+	li.todoist-hidden {
+	display: none !important;
 }
 
 /* === Editor (Live Preview / Source, CM6) === */
@@ -12,8 +13,9 @@ body.todoist-hide-completed:not(.todoist-reveal-completed)
 }*/
 
 body.todoist-hide-completed:not(.todoist-reveal-completed)
-  .cm-editor .cm-line.todoist-hide-line {
-  display: none !important;
+	.cm-editor
+	.cm-line.todoist-hide-line {
+	display: none !important;
 }
 
 /* Optional, super-robust CSS-only fallback using :has()
@@ -24,3 +26,14 @@ body.todoist-hide-completed:not(.todoist-reveal-completed)
   .cm-editor .cm-line:has(.task-list-item-checkbox[data-task="x"]) {
   display: none !important;
 }*/
+
+
+.todoist-status-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  user-select: none;
+}
+.todoist-status-btn[aria-pressed="true"] { opacity: 0.9; }
+.todoist-status-btn:active { transform: scale(0.98); }
+s
