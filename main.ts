@@ -22,6 +22,7 @@ interface TodoistSettings {
 	hideCompleted: boolean;
 	hideInReadingView: boolean;
 	hideInEditor: boolean;
+	perFile?: Record<string, boolean>; // path -> per-note override
 }
 
 const DEFAULT_SETTINGS: TodoistSettings = {
@@ -101,7 +102,7 @@ export default class TodoistStyleTasksPlugin extends Plugin {
 		});
 
 		// this.addSettingTab(new TodoistSettingTab(this.app, this));
-    this.mountStatusToggle(); // ✅ shows on mobile bottom bar 
+		this.mountStatusToggle(); // ✅ shows on mobile bottom bar
 	}
 
 	onunload() {
@@ -117,9 +118,12 @@ export default class TodoistStyleTasksPlugin extends Plugin {
 		// Make a button in the bottom status bar
 		this.statusBtn = this.addStatusBarItem();
 		this.statusBtn.addClass("todoist-status-btn");
+
 		const sync = () => {
 			this.statusBtn!.setText(
-				this.settings.hideCompleted ? "Hide ✓" : "Show ✓",
+				this.settings.hideCompleted
+					? "Show completed ✓"
+					: "Hide completed ✓",
 			);
 			this.statusBtn!.setAttr(
 				"aria-pressed",
