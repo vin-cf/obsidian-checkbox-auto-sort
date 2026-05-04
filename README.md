@@ -6,6 +6,8 @@ An [Obsidian](https://obsidian.md) plugin that keeps your checkboxes sorted. Whe
 
 The moment you tick a checkbox, the plugin reorders the surrounding list block: unchecked items stay at the top, checked items move to the bottom. A subtle divider line appears between the two groups so you can see at a glance what's done and what isn't.
 
+Works in Reading or Editor mode.
+
 ```
 Before checking "Feed cat":          After checking "Feed cat":
 

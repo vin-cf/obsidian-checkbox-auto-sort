@@ -1,4 +1,4 @@
-import { Plugin } from "obsidian";
+import { Plugin, MarkdownRenderChild } from "obsidian";
 import {
 	EditorView,
 	Decoration,
@@ -21,8 +21,55 @@ const CHECKED_RE  = /^\s*(?:[-*]|\d+\.)\s+\[[xX]\]/;
 export default class CheckboxSortPlugin extends Plugin {
 	async onload() {
 		this.registerEditorExtension([makeSorterPlugin(), makeDividerField()]);
+		this.registerMarkdownPostProcessor((element, context) => {
+			context.addChild(new ReadingViewSorter(element));
+		});
 	}
 	onunload() {}
+}
+
+// Handles reading mode sorting. Uses a MutationObserver because Obsidian toggles
+// the is-checked class directly on the <li> after a checkbox click — it does not
+// re-render the section through the post-processor pipeline.
+class ReadingViewSorter extends MarkdownRenderChild {
+	private observer!: MutationObserver;
+
+	onload() {
+		this.observer = new MutationObserver(() => {
+			// Disconnect while we mutate classes to avoid re-triggering ourselves
+			this.observer.disconnect();
+			this.sort();
+			this.startObserving();
+		});
+		this.sort();
+		this.startObserving();
+	}
+
+	onunload() {
+		this.observer.disconnect();
+	}
+
+	private startObserving() {
+		this.observer.observe(this.containerEl, {
+			attributes: true,
+			attributeFilter: ['class'],
+			subtree: true,
+		});
+	}
+
+	private sort() {
+		this.containerEl.querySelectorAll<HTMLElement>('ul.contains-task-list').forEach(list => {
+			const items     = Array.from(list.children) as HTMLElement[];
+			const unchecked = items.filter(li => li.classList.contains('task-list-item') && !li.classList.contains('is-checked'));
+			const checked   = items.filter(li => li.classList.contains('task-list-item') &&  li.classList.contains('is-checked'));
+
+			if (checked.length === 0) return;
+
+			items.forEach(li => li.classList.remove('checkbox-divider-line'));
+			for (const li of [...unchecked, ...checked]) list.appendChild(li);
+			if (unchecked.length > 0) checked[0].classList.add('checkbox-divider-line');
+		});
+	}
 }
 
 function makeSorterPlugin() {
