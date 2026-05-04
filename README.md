@@ -1,6 +1,6 @@
-# Checklists - Move Done to Bottom
+# Checkboxes: Sort Done to Bottom
 
-An [Obsidian](https://obsidian.md) plugin that keeps your checklists focused. When you check off an item, it sinks to the bottom of the list automatically.
+An [Obsidian](https://obsidian.md) plugin that keeps your checkboxes sorted. When you check off an item, it sinks to the bottom of the list automatically.
 
 ## How it works
 
@@ -15,7 +15,7 @@ Before checking "Feed cat":          After checking "Feed cat":
                                       - [x] Feed cat
 ```
 
-Only the contiguous checklist block containing the changed item is reordered; other lists in the note are not affected. 
+Only the contiguous checkbox block containing the changed item is reordered; other lists in the note are not affected. 
 Child (indented) items stay attached to their parent item.
 The plugin sorts on user edit.
 
@@ -25,7 +25,7 @@ The plugin sorts on user edit.
 
 1. Open **Settings → Community plugins**
 2. Turn off Safe mode if prompted
-3. Click **Browse** and search for **Checklists - Move Done to Bottom**
+3. Click **Browse** and search for **Checkboxes: Sort done to bottom**
 4. Install and enable
 
 ## Development workflow
@@ -52,7 +52,7 @@ npm run dev
 For the fastest feedback loop, clone the repo directly into your vault's plugin folder:
 
 ```
-<vault>/.obsidian/plugins/checklists/
+<vault>/.obsidian/plugins/checkbox-auto-sort/
 ```
 
 After each recompile, open the **Command palette** in Obsidian and run **Reload app without saving** (or toggle the plugin off and on in Settings → Community plugins) to pick up the latest build.
@@ -77,8 +77,8 @@ npx eslint main.ts
 
 | Extension | Role |
 |---|---|
-| `makeSorterPlugin()` | `ViewPlugin` — watches for document changes, identifies the affected checklist block, and dispatches a transaction that moves checked items to the end of the block |
-| `makeDividerField()` | `StateField` — scans the document on every relevant change and adds a `checklist-divider-line` CSS decoration to the first checked item in each sorted block |
+| `makeSorterPlugin()` | `ViewPlugin` — watches for document changes, identifies the affected checkbox block, and dispatches a transaction that sorts checked items to the end of the block |
+| `makeDividerField()` | `StateField` — scans the document on every relevant change and adds a `checkbox-divider-line` CSS decoration to the first checked item in each sorted block |
 
 A `SORTED_EFFECT` state effect acts as a re-entry guard so the sorter ignores transactions it produced itself, preventing infinite update loops.
 
