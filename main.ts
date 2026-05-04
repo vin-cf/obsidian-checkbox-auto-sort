@@ -1,16 +1,11 @@
 import { Plugin, MarkdownRenderChild } from "obsidian";
 import {
 	EditorView,
-	Decoration,
-	DecorationSet,
 	ViewPlugin,
 	ViewUpdate,
 } from "@codemirror/view";
 import {
 	StateEffect,
-	StateField,
-	RangeSetBuilder,
-	EditorState,
 } from "@codemirror/state";
 
 const SORTED_EFFECT = StateEffect.define<null>();
@@ -20,7 +15,7 @@ const CHECKED_RE  = /^\s*(?:[-*]|\d+\.)\s+\[[xX]\]/;
 
 export default class CheckboxSortPlugin extends Plugin {
 	async onload() {
-		this.registerEditorExtension([makeSorterPlugin(), makeDividerField()]);
+		this.registerEditorExtension([makeSorterPlugin()]);
 		this.registerMarkdownPostProcessor((element, context) => {
 			context.addChild(new ReadingViewSorter(element));
 		});
@@ -36,7 +31,7 @@ class ReadingViewSorter extends MarkdownRenderChild {
 
 	onload() {
 		this.observer = new MutationObserver(() => {
-			// Disconnect while we mutate classes to avoid re-triggering ourselves
+			// Disconnect while we reorder DOM nodes to avoid re-triggering ourselves
 			this.observer.disconnect();
 			this.sort();
 			this.startObserving();
@@ -63,11 +58,8 @@ class ReadingViewSorter extends MarkdownRenderChild {
 			const unchecked = items.filter(li => li.classList.contains('task-list-item') && !li.classList.contains('is-checked'));
 			const checked   = items.filter(li => li.classList.contains('task-list-item') &&  li.classList.contains('is-checked'));
 
-			if (checked.length === 0) return;
-
-			items.forEach(li => li.classList.remove('checkbox-divider-line'));
+			if (checked.length === 0 || unchecked.length === 0) return;
 			for (const li of [...unchecked, ...checked]) list.appendChild(li);
-			if (unchecked.length > 0) checked[0].classList.add('checkbox-divider-line');
 		});
 	}
 }
@@ -143,45 +135,4 @@ function makeSorterPlugin() {
 			}
 		},
 	);
-}
-
-function makeDividerField() {
-	const dividerDeco = Decoration.line({ attributes: { class: "checkbox-divider-line" } });
-
-	function buildDividers(state: EditorState): DecorationSet {
-		const builder = new RangeSetBuilder<Decoration>();
-		const doc = state.doc;
-		let prevWasCheckbox = false;
-		let prevChecked     = false;
-
-		for (let i = 1; i <= doc.lines; i++) {
-			const line      = doc.line(i);
-			const isCheckbox = CHECKBOX_RE.test(line.text);
-			const isChecked  = isCheckbox && CHECKED_RE.test(line.text);
-
-			if (isCheckbox) {
-				// First checked line after at least one unchecked line in the same block
-				if (isChecked && !prevChecked && prevWasCheckbox) {
-					builder.add(line.from, line.from, dividerDeco);
-				}
-				prevChecked     = isChecked;
-				prevWasCheckbox = true;
-			} else {
-				prevWasCheckbox = false;
-				prevChecked     = false;
-			}
-		}
-		return builder.finish();
-	}
-
-	return StateField.define<DecorationSet>({
-		create: (state) => buildDividers(state),
-		update: (decos, tr) => {
-			if (tr.docChanged || tr.effects.some(e => e.is(SORTED_EFFECT))) {
-				return buildDividers(tr.state);
-			}
-			return decos;
-		},
-		provide: f => EditorView.decorations.from(f),
-	});
 }
