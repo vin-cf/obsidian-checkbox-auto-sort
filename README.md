@@ -1,96 +1,85 @@
-# Obsidian Sample Plugin
+# Checklists - Move Done to Bottom
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+An [Obsidian](https://obsidian.md) plugin that keeps your checklists focused. When you check off an item, it sinks to the bottom of the list automatically.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## How it works
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
+The moment you tick a checkbox, the plugin reorders the surrounding list block: unchecked items stay at the top, checked items move to the bottom. A subtle divider line appears between the two groups so you can see at a glance what's done and what isn't.
 
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+```
+Before checking "Feed cat":          After checking "Feed cat":
 
-## First time developing plugins?
-
-Quick starting guide for new plugin devs:
-
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
-
-## Releasing new releases
-
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
-
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
-
-## Adding your plugin to the community plugin list
-
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
-
-## How to use
-
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint (optional)
-
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code.
-- To use eslint with this project, make sure to install eslint from terminal:
-    - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-    - `eslint main.ts`
-    - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-    - `eslint .\src\`
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-	"fundingUrl": "https://buymeacoffee.com"
-}
+- [ ] Feed cat                        - [ ] Walk cat
+- [ ] Walk cat                        - [ ] Brush cat
+- [ ] Brush cat                       ──────────────────
+                                      - [x] Feed cat
 ```
 
-If you have multiple URLs, you can also do:
+Only the contiguous checklist block containing the changed item is reordered; other lists in the note are not affected. 
+Child (indented) items stay attached to their parent item.
+The plugin sorts on user edit.
 
-```json
-{
-	"fundingUrl": {
-		"Buy Me a Coffee": "https://buymeacoffee.com",
-		"GitHub Sponsor": "https://github.com/sponsors",
-		"Patreon": "https://www.patreon.com/"
-	}
-}
+## Installation
+
+### From the Obsidian community plugin browser (recommended)
+
+1. Open **Settings → Community plugins**
+2. Turn off Safe mode if prompted
+3. Click **Browse** and search for **Checklists - Move Done to Bottom**
+4. Install and enable
+
+## Development workflow
+
+### Prerequisites
+
+- Node.js ≥ 16
+- npm
+
+### Setup
+
+```bash
+npm install
 ```
 
-## API Documentation
+### Development (watch mode)
 
-See https://github.com/obsidianmd/obsidian-api
+Run the build in watch mode — it recompiles `main.ts` to `main.js` on every save:
+
+```bash
+npm run dev
+```
+
+For the fastest feedback loop, clone the repo directly into your vault's plugin folder:
+
+```
+<vault>/.obsidian/plugins/checklists/
+```
+
+After each recompile, open the **Command palette** in Obsidian and run **Reload app without saving** (or toggle the plugin off and on in Settings → Community plugins) to pick up the latest build.
+
+### Production build
+
+```bash
+npm run build
+```
+
+This type-checks first (`tsc -noEmit`) then bundles with esbuild. The output is `main.js`.
+
+### Linting
+
+```bash
+npx eslint main.ts
+```
+
+## How the code works
+
+`main.ts` registers two CodeMirror 6 extensions:
+
+| Extension | Role |
+|---|---|
+| `makeSorterPlugin()` | `ViewPlugin` — watches for document changes, identifies the affected checklist block, and dispatches a transaction that moves checked items to the end of the block |
+| `makeDividerField()` | `StateField` — scans the document on every relevant change and adds a `checklist-divider-line` CSS decoration to the first checked item in each sorted block |
+
+A `SORTED_EFFECT` state effect acts as a re-entry guard so the sorter ignores transactions it produced itself, preventing infinite update loops.
+
+`styles.css` draws the divider using a top border on the decorated line, themed with Obsidian's `--background-modifier-border` CSS variable so it adapts to light and dark themes automatically.
