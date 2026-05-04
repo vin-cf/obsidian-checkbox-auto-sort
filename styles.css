@@ -1,6 +1,0 @@
-/* Divider above the first checked checkbox in a sorted block (editor + reading mode) */
-.checkbox-divider-line {
-	border-top: 1px solid var(--divider-color, var(--background-modifier-border));
-	padding-top: 4px;
-	margin-top: 2px;
-}
