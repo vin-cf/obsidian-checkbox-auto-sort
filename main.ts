@@ -18,7 +18,7 @@ const SORTED_EFFECT = StateEffect.define<null>();
 const CHECKBOX_RE = /^\s*(?:[-*]|\d+\.)\s+\[[ xX]\]/;
 const CHECKED_RE  = /^\s*(?:[-*]|\d+\.)\s+\[[xX]\]/;
 
-export default class ChecklistSortPlugin extends Plugin {
+export default class CheckboxSortPlugin extends Plugin {
 	async onload() {
 		this.registerEditorExtension([makeSorterPlugin(), makeDividerField()]);
 	}
@@ -99,7 +99,7 @@ function makeSorterPlugin() {
 }
 
 function makeDividerField() {
-	const dividerDeco = Decoration.line({ attributes: { class: "checklist-divider-line" } });
+	const dividerDeco = Decoration.line({ attributes: { class: "checkbox-divider-line" } });
 
 	function buildDividers(state: EditorState): DecorationSet {
 		const builder = new RangeSetBuilder<Decoration>();

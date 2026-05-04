@@ -1,7 +1,7 @@
 {
-	"name": "checklists",
+	"name": "checkbox-auto-sort",
 	"version": "1.0.0",
-	"description": "Move completed checklist items to the bottom of the list as soon as they're checked.",
+	"description": "Sort completed checkboxes to the bottom of the list as soon as they're checked.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",

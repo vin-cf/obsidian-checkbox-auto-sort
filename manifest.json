@@ -1,9 +1,9 @@
 {
-	"id": "checklists",
-	"name": "Checklists – Move Done to Bottom",
+	"id": "checkbox-auto-sort",
+	"name": "Checkboxes: Sort done to bottom",
 	"version": "1.0.0",
 	"minAppVersion": "1.12.0",
-	"description": "Move completed checklist items to the bottom of the list as soon as they’re checked.",
+	"description": "Sort completed checkboxes to the bottom of the list as soon as they’re checked.",
 	"author": "vin-cf",
 	"authorUrl": "https://github.com/vin-cf",
 	"isDesktopOnly": false
