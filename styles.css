@@ -1,39 +1,6 @@
-/* === Reading View (Preview) === */
-body.todoist-hide-completed:not(.todoist-reveal-completed)
-	.markdown-preview-view
-	li.todoist-hidden {
-	display: none !important;
+/* Divider above the first checked item in a sorted block */
+.cm-editor .checklist-divider-line {
+	border-top: 1px solid var(--divider-color, var(--background-modifier-border));
+	padding-top: 4px;
+	margin-top: 2px;
 }
-
-/* === Editor (Live Preview / Source, CM6) === */
-/* High-specificity variants to beat themes/snippets */
-/*body.todoist-hide-completed:not(.todoist-reveal-completed)
-  .markdown-source-view.mod-cm6 .cm-line.todoist-hide-line {
-  display: none !important;
-}*/
-
-body.todoist-hide-completed:not(.todoist-reveal-completed)
-	.cm-editor
-	.cm-line.todoist-hide-line {
-	display: none !important;
-}
-
-/* Optional, super-robust CSS-only fallback using :has()
-   (works in current Chromium/Electron builds).
-   This hides ANY cm-line that contains a checked task input,
-   even if our decoration didn't attach for some reason. */
-/*body.todoist-hide-completed:not(.todoist-reveal-completed)
-  .cm-editor .cm-line:has(.task-list-item-checkbox[data-task="x"]) {
-  display: none !important;
-}*/
-
-
-.todoist-status-btn {
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-weight: 600;
-  user-select: none;
-}
-.todoist-status-btn[aria-pressed="true"] { opacity: 0.9; }
-.todoist-status-btn:active { transform: scale(0.98); }
-s

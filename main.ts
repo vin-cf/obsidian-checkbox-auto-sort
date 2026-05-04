@@ -1,14 +1,4 @@
-import {
-	App,
-	MarkdownPostProcessorContext,
-	MarkdownView,
-	Plugin,
-	PluginSettingTab,
-	Setting,
-	Notice, // optional: for small toasts
-	Platform,
-} from "obsidian";
-
+import { Plugin } from "obsidian";
 import {
 	EditorView,
 	Decoration,
@@ -16,302 +6,135 @@ import {
 	ViewPlugin,
 	ViewUpdate,
 } from "@codemirror/view";
-import { RangeSetBuilder, StateField, EditorState } from "@codemirror/state";
+import {
+	StateEffect,
+	StateField,
+	RangeSetBuilder,
+	EditorState,
+} from "@codemirror/state";
 
-interface TodoistSettings {
-	hideCompleted: boolean;
-	hideInReadingView: boolean;
-	hideInEditor: boolean;
-	perFile?: Record<string, boolean>; // path -> per-note override
+const SORTED_EFFECT = StateEffect.define<null>();
+
+const CHECKBOX_RE = /^\s*(?:[-*]|\d+\.)\s+\[[ xX]\]/;
+const CHECKED_RE  = /^\s*(?:[-*]|\d+\.)\s+\[[xX]\]/;
+
+export default class ChecklistSortPlugin extends Plugin {
+	async onload() {
+		this.registerEditorExtension([makeSorterPlugin(), makeDividerField()]);
+	}
+	onunload() {}
 }
 
-const DEFAULT_SETTINGS: TodoistSettings = {
-	hideCompleted: true,
-	hideInReadingView: true,
-	hideInEditor: true,
-};
+function makeSorterPlugin() {
+	return ViewPlugin.fromClass(
+		class {
+			constructor(public view: EditorView) {}
 
-export default class TodoistStyleTasksPlugin extends Plugin {
-	settings: TodoistSettings = DEFAULT_SETTINGS;
-	private revealTimer: number | null = null;
-	private editorExtension: any;
-	private statusBtn: HTMLElement | null = null;
+			update(update: ViewUpdate) {
+				// Re-entry guard: skip updates produced by our own sort dispatch
+				if (update.transactions.some(tr => tr.effects.some(e => e.is(SORTED_EFFECT)))) return;
+				if (!update.docChanged) return;
 
-	async onload() {
-		console.log("[checklists] loading plugin v1.0.0");
-		await this.loadSettings();
+				const doc = update.state.doc;
 
-		this.applyBodyClasses();
+				const changedLines = new Set<number>();
+				update.changes.iterChanges((_fromA, _toA, fromB, toB) => {
+					const startLine = doc.lineAt(fromB).number;
+					const endLine   = doc.lineAt(toB).number;
+					for (let n = startLine; n <= endLine; n++) changedLines.add(n);
+				});
 
-		// Reading view processor: hide completed on initial render + react to user clicks
-		this.registerMarkdownPostProcessor(
-			(el: HTMLElement, _ctx: MarkdownPostProcessorContext) => {
-				if (!this.settings.hideInReadingView) return;
-				console.log("[checklists] post-processor ran");
+				for (const lineNum of changedLines) {
+					const line = doc.line(lineNum);
+					if (!CHECKBOX_RE.test(line.text)) continue;
 
-				const checkboxes = el.querySelectorAll<HTMLInputElement>(
-					'input[type="checkbox"]',
-				);
-				console.log(
-					"[checklists] found checkboxes:",
-					checkboxes.length,
-				);
+					const baseIndent = line.text.match(/^(\s*)/)![1].length;
 
-				checkboxes.forEach((cb) => {
-					const li = cb.closest("li");
-					if (!li) return;
-
-					const update = () => {
-						const shouldHide =
-							this.settings.hideCompleted &&
-							this.settings.hideInReadingView &&
-							cb.checked &&
-							!document.body.classList.contains(
-								"todoist-reveal-completed",
-							);
-						li.classList.toggle("todoist-hidden", shouldHide);
-						if (shouldHide)
-							console.log(
-								"[checklists] hid <li>",
-								li.textContent?.trim(),
-							);
+					const isBlockLine = (n: number) => {
+						const t = doc.line(n).text;
+						const ind = t.match(/^(\s*)/)![1].length;
+						return ind >= baseIndent && (CHECKBOX_RE.test(t) || /^\s*[-*]\s/.test(t));
 					};
 
-					update(); // initial
-					cb.addEventListener("change", update); // subsequent checks/unchecks
-				});
-			},
-		);
+					let blockStart = lineNum, blockEnd = lineNum;
+					while (blockStart > 1         && isBlockLine(blockStart - 1)) blockStart--;
+					while (blockEnd   < doc.lines && isBlockLine(blockEnd + 1))   blockEnd++;
 
-		// Editor (CM6)
-		this.editorExtension = this.makeEditorHider();
-		this.registerEditorExtension(this.editorExtension);
+					interface ListItem { text: string; checked: boolean; }
+					const items: ListItem[] = [];
+					let current: ListItem | null = null;
+					for (let i = blockStart; i <= blockEnd; i++) {
+						const l = doc.line(i);
+						const ind = l.text.match(/^(\s*)/)![1].length;
+						if (ind === baseIndent) {
+							if (current) items.push(current);
+							current = { text: l.text, checked: CHECKED_RE.test(l.text) };
+						} else if (current) {
+							current.text += '\n' + l.text;
+						}
+					}
+					if (current) items.push(current);
 
-		// Commands
-		this.addCommand({
-			id: "toggle-hide-completed",
-			name: "Toggle: Hide Completed Tasks",
-			callback: async () => {
-				this.settings.hideCompleted = !this.settings.hideCompleted;
-				await this.saveSettings();
-				this.applyBodyClasses();
-				this.refreshAllEditors();
-				this.applyReadingViewHidingNow(); // ← sweep existing Reading Views
-				// new Notice(`Hide completed: ${this.settings.hideCompleted ? "ON" : "OFF"}`, 1200);
-			},
-		});
+					const from     = doc.line(blockStart).from;
+					const to       = doc.line(blockEnd).to;
+					const original = doc.sliceString(from, to);
+					const sorted   = [
+						...items.filter(i => !i.checked),
+						...items.filter(i =>  i.checked),
+					].map(i => i.text).join('\n');
 
-		// this.addSettingTab(new TodoistSettingTab(this.app, this));
-		this.mountStatusToggle(); // ✅ shows on mobile bottom bar
-	}
+					if (sorted === original) continue;
 
-	onunload() {
-		console.log("[checklists] unloading plugin");
-		if (this.revealTimer) window.clearTimeout(this.revealTimer);
-		document.body.classList.remove(
-			"todoist-hide-completed",
-			"todoist-reveal-completed",
-		);
-	}
-
-	private mountStatusToggle() {
-		// Make a button in the bottom status bar
-		this.statusBtn = this.addStatusBarItem();
-		this.statusBtn.addClass("todoist-status-btn");
-
-		const sync = () => {
-			this.statusBtn!.setText(
-				this.settings.hideCompleted
-					? "Show completed ✓"
-					: "Hide completed ✓",
-			);
-			this.statusBtn!.setAttr(
-				"aria-pressed",
-				String(this.settings.hideCompleted),
-			);
-		};
-		sync();
-
-		this.statusBtn.addEventListener("click", async () => {
-			this.settings.hideCompleted = !this.settings.hideCompleted;
-			await this.saveSettings();
-			this.applyBodyClasses();
-			this.refreshAllEditors();
-			this.applyReadingViewHidingNow?.(); // if you added this sweep helper
-			sync();
-		});
-	}
-
-	private applyBodyClasses() {
-		const on = this.settings.hideCompleted;
-		console.log("[checklists] hideCompleted =", on);
-		document.body.classList.toggle("todoist-hide-completed", on);
-		console.log(
-			"[checklists] body.classList ->",
-			document.body.classList.value,
-		);
-	}
-
-	private applyReadingViewHidingNow() {
-		if (!this.settings.hideInReadingView) return;
-
-		const previews = document.querySelectorAll<HTMLElement>(
-			".markdown-preview-view",
-		);
-		const reveal = document.body.classList.contains(
-			"todoist-reveal-completed",
-		);
-		const active = this.settings.hideCompleted && !reveal;
-
-		previews.forEach((root) => {
-			root.querySelectorAll<HTMLInputElement>(
-				'input[type="checkbox"]',
-			).forEach((cb) => {
-				const li = cb.closest("li");
-				if (!li) return;
-				li.classList.toggle("todoist-hidden", active && cb.checked);
-			});
-		});
-
-		console.log("[checklists] sweep complete (reading view)");
-	}
-
-	private refreshAllEditors() {
-		this.app.workspace.iterateAllLeaves((leaf) => {
-			const mv = leaf.view as MarkdownView;
-			const cm = (mv?.editor as any)?.cm as EditorView | undefined;
-			if (cm) {
-				cm.dispatch({ changes: { from: 0, to: 0, insert: "" } }); // no-op change triggers rebuild
-				(cm as any).requestMeasure?.(() => {});
-			}
-		});
-	}
-
-	private makeEditorHider() {
-		const plugin = this;
-		const hideLineDeco = Decoration.line({
-			attributes: { class: "todoist-hide-line" },
-		});
-
-		function buildDecorations(state: EditorState): DecorationSet {
-			const builder = new RangeSetBuilder<Decoration>();
-
-			const cssOn =
-				document.body.classList.contains("todoist-hide-completed") &&
-				!document.body.classList.contains("todoist-reveal-completed");
-
-			if (
-				!(
-					plugin.settings.hideCompleted &&
-					plugin.settings.hideInEditor &&
-					cssOn
-				)
-			) {
-				// console.log("[checklists] CM6: hiding OFF");
-				return builder.finish();
-			}
-
-			// Support -, *, and ordered lists like "1. [x] ..."
-			const re = /^\s*(?:[-*]|\d+\.)\s+\[(x|X)\]\s.*$/;
-			// Count hits while developing:
-			// let hits = 0;
-
-			for (let i = 1; i <= state.doc.lines; i++) {
-				const line = state.doc.line(i);
-				if (re.test(line.text)) {
-					// hits++;
-					builder.add(line.from, line.from, hideLineDeco);
+					const { view } = this;
+					queueMicrotask(() => {
+						view.dispatch({
+							changes: [{ from, to, insert: sorted }],
+							effects: SORTED_EFFECT.of(null),
+						});
+					});
 				}
 			}
-			// console.log("[checklists] CM6 hidden line count:", hits);
-			return builder.finish();
-		}
-
-		const field = StateField.define<DecorationSet>({
-			create(state) {
-				return buildDecorations(state);
-			},
-			update(deco, tr) {
-				if (tr.docChanged) return buildDecorations(tr.state);
-				if (tr.selection) return buildDecorations(tr.state);
-				// @ts-ignore optional in some builds
-				if (tr.reconfigured) return buildDecorations(tr.state);
-				return deco;
-			},
-			provide: (f) => EditorView.decorations.from(f),
-		});
-
-		const pokeOnViewUpdate = ViewPlugin.fromClass(
-			class {
-				constructor(public view: EditorView) {}
-				update(_u: ViewUpdate) {
-					// no-op; refreshAllEditors() forces rebuilds when needed
-				}
-			},
-		);
-
-		return [field, pokeOnViewUpdate];
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData(),
-		);
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+		},
+	);
 }
 
-// class TodoistSettingTab extends PluginSettingTab {
-//   plugin: TodoistStyleTasksPlugin;
+function makeDividerField() {
+	const dividerDeco = Decoration.line({ attributes: { class: "checklist-divider-line" } });
 
-//   constructor(app: App, plugin: TodoistStyleTasksPlugin) {
-//     super(app, plugin);
-//     this.plugin = plugin;
-//   }
+	function buildDividers(state: EditorState): DecorationSet {
+		const builder = new RangeSetBuilder<Decoration>();
+		const doc = state.doc;
+		let prevWasCheckbox = false;
+		let prevChecked     = false;
 
-//   display(): void {
-//     const { containerEl } = this;
-//     containerEl.empty();
-//     containerEl.createEl("h2", { text: "Todoist-style Tasks" });
+		for (let i = 1; i <= doc.lines; i++) {
+			const line      = doc.line(i);
+			const isCheckbox = CHECKBOX_RE.test(line.text);
+			const isChecked  = isCheckbox && CHECKED_RE.test(line.text);
 
-//     new Setting(containerEl)
-//       .setName("Hide completed tasks")
-//       .setDesc("Master toggle for hiding completed tasks everywhere.")
-//       .addToggle((t) =>
-//         t.setValue(this.plugin.settings.hideCompleted).onChange(async (v) => {
-//           this.plugin.settings.hideCompleted = v;
-//           await this.plugin.saveSettings();
-//           this.plugin.applyBodyClasses();
-//           this.plugin.refreshAllEditors();
-//           this.plugin.applyReadingViewHidingNow();
-//         })
-//       );
+			if (isCheckbox) {
+				// First checked line after at least one unchecked line in the same block
+				if (isChecked && !prevChecked && prevWasCheckbox) {
+					builder.add(line.from, line.from, dividerDeco);
+				}
+				prevChecked     = isChecked;
+				prevWasCheckbox = true;
+			} else {
+				prevWasCheckbox = false;
+				prevChecked     = false;
+			}
+		}
+		return builder.finish();
+	}
 
-//     new Setting(containerEl)
-//       .setName("Hide in Reading View")
-//       .setDesc("Hide checked tasks in Reading View.")
-//       .addToggle((t) =>
-//         t.setValue(this.plugin.settings.hideInReadingView).onChange(async (v) => {
-//           this.plugin.settings.hideInReadingView = v;
-//           await this.plugin.saveSettings();
-//           this.plugin.applyReadingViewHidingNow();
-//         })
-//       );
-
-//     new Setting(containerEl)
-//       .setName("Hide in Editor (Live Preview / Source)")
-//       .setDesc("Hide checked tasks while editing.")
-//       .addToggle((t) =>
-//         t.setValue(this.plugin.settings.hideInEditor).onChange(async (v) => {
-//           this.plugin.settings.hideInEditor = v;
-//           await this.plugin.saveSettings();
-//           this.plugin.refreshAllEditors();
-//         })
-//       );
-//   }
-// }
+	return StateField.define<DecorationSet>({
+		create: (state) => buildDividers(state),
+		update: (decos, tr) => {
+			if (tr.docChanged || tr.effects.some(e => e.is(SORTED_EFFECT))) {
+				return buildDividers(tr.state);
+			}
+			return decos;
+		},
+		provide: f => EditorView.decorations.from(f),
+	});
+}
