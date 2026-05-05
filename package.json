@@ -1,6 +1,6 @@
 {
 	"name": "checkbox-auto-sort",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Sort completed checkboxes to the bottom of the list as soon as they're checked.",
 	"main": "main.js",
 	"scripts": {

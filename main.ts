@@ -13,14 +13,15 @@ const SORTED_EFFECT = StateEffect.define<null>();
 const CHECKBOX_RE = /^\s*(?:[-*]|\d+\.)\s+\[[ xX]\]/;
 const CHECKED_RE  = /^\s*(?:[-*]|\d+\.)\s+\[[xX]\]/;
 
+interface ListItem { text: string; checked: boolean; }
+
 export default class CheckboxSortPlugin extends Plugin {
-	async onload() {
+	onload() {
 		this.registerEditorExtension([makeSorterPlugin()]);
 		this.registerMarkdownPostProcessor((element, context) => {
 			context.addChild(new ReadingViewSorter(element));
 		});
 	}
-	onunload() {}
 }
 
 // Handles reading mode sorting. Uses a MutationObserver because Obsidian toggles
@@ -99,7 +100,6 @@ function makeSorterPlugin() {
 					while (blockStart > 1         && isBlockLine(blockStart - 1)) blockStart--;
 					while (blockEnd   < doc.lines && isBlockLine(blockEnd + 1))   blockEnd++;
 
-					interface ListItem { text: string; checked: boolean; }
 					const items: ListItem[] = [];
 					let current: ListItem | null = null;
 					for (let i = blockStart; i <= blockEnd; i++) {
