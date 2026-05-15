@@ -1,7 +1,7 @@
 {
 	"id": "checkbox-auto-sort",
 	"name": "Checkboxes: Sort done to bottom",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "1.12.0",
 	"description": "Sort completed checkboxes to the bottom of the list as soon as they’re checked.",
 	"author": "vin-cf",
