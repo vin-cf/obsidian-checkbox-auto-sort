@@ -1,4 +1,4 @@
-# Checkboxes: Sort Done to Bottom
+# Auto-Sort Completed Checkboxes
 
 ![A demo of the plugin working](resources/checkbox-auto-sort.gif)
 
@@ -18,7 +18,7 @@ The moment you tick a checkbox, the plugin reorders the surrounding list block: 
 
 1. Open **Settings → Community plugins**
 2. Turn off Safe mode if prompted
-3. Click **Browse** and search for **Checkboxes: Sort done to bottom**
+3. Click **Browse** and search for **Auto-Sort Completed Checkboxes**
 4. Install and enable
 
 ## Development workflow
